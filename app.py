@@ -82,7 +82,7 @@ def form():
                         class="form"
                     >
                         <h2>Upload dataset 📊</h2>
-                        <p>Minimum support is 20%</p>
+                        <p>Minimum support is 2%</p>
                         <input type="file" name="data_file" />
                         <input type="submit" />
                     </form>
