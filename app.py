@@ -214,19 +214,22 @@ def main(select_file_list, minimum_support):
 
 @app.route('/apriori', methods=["POST"])
 def transform_view():
-    f = request.files['data_file']
-    minimum_support = request.form.get('mim_sup')
-    if not f:
-        return "No file"
-    stream = io.StringIO(f.stream.read().decode("UTF8"), newline=None)
-    csv_input = csv.reader(stream)
-    l = []
-    for i,v in enumerate(csv_input):
-        t = ""
-        for x in v:
-            t = t+x+","
-        l.append(t[:-1])
-    output_result["result"] = apriori_gen(l, int(minimum_support))
-    print(output_result['result'])
-    print("End - total items:", output_result['total'])
-    return str( "Total sets: "+str(len(output_result['result'])) +" \n"+str(output_result['result']) )
+    try:
+        f = request.files['data_file']
+        minimum_support = request.form.get('mim_sup')
+        if not f:
+            return "No file"
+        stream = io.StringIO(f.stream.read().decode("UTF8"), newline=None)
+        csv_input = csv.reader(stream)
+        l = []
+        for i,v in enumerate(csv_input):
+            t = ""
+            for x in v:
+                t = t+x+","
+            l.append(t[:-1])
+        output_result["result"] = apriori_gen(l, int(minimum_support))
+        print(output_result['result'])
+        print("End - total items:", output_result['total'])
+        return str( "Total sets: "+str(len(output_result['result'])) +" \n"+str(output_result['result']) )
+    except Exception as e:
+        return " *Must provide Minimum support value,  "+ str(e)
