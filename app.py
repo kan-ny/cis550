@@ -1,22 +1,17 @@
-# from flask import Flask, request, render_template, send_from_directory
 from flask import Flask, make_response, request
-# from werkzeug.utils import secure_filename
-from itertools import chain, combinations
-import os
-import argparse
 import io
+import sys
 import csv
+import itertools
 
 app = Flask(__name__)
+debug = True
 
-output_result = {
-    "error": None,
-    "result": "",
-    "file": None,
-    "total": None
-}
-
-
+MIN_SUPOORT = 20
+transactions = {}
+apriori_flag = True
+total_sets = []
+transactions_subset=[]
 
 @app.route('/')
 def form():
@@ -42,16 +37,13 @@ def form():
         </head>
         <style type="text/css">
             body {
-                 background-image: linear-gradient(to right top, #f8b368, #f7ac6c, #f5a670, #f3a074, #ef9b78, #ed9e72, #eaa26d, #e6a668, #d9b75f, #c3c962, #a3da73, #74e993);
-
+            background-image: linear-gradient(to right top, #f8b368, #f7ac6c, #f5a670, #f3a074, #ef9b78, #ed9e72, #eaa26d, #e6a668, #d9b75f, #c3c962, #a3da73, #74e993);
             margin: 0;
             padding: 0;
             background-color: #fbfbfb;
             height: 100vh;
             }
             #login .container #login-row #login-column #login-box {
-            
-            
             margin-top: 120px;
             max-width: 600px;
             height: 320px;
@@ -72,10 +64,9 @@ def form():
             #register-link {
             margin-top: -85px;
             }
-
         </style>
         <body>
-            <div class="gradient" id="login">
+            <div id="login">
             <h3 class="text-center text-dark pt-5">CIS550 Apriori Algorithm</h3>
             <div class="container">
                 <div
@@ -86,22 +77,17 @@ def form():
                     <div id="login-box" class="col-md-12">
                     <form
                         method="post" enctype="multipart/form-data"
-                        action="/apriori"
+                        action="/apriori_algo"
                         id="login-form"
                         class="form"
                     >
                         <h2>Upload dataset 📊</h2>
                         <input type="file" name="data_file" />
-
                         <input name="mim_sup" placeholder="Minimum Support"  type="text" oninput="this.value = this.value.replace(/[^0-9.]/g, '').replace(/(\..*?)\..*/g, '$1');" />
                         <input type="submit" />
-
-
                         <br><p>Pramod Kumar Bathulla</p>
                         <p>2836854 | prbathul</p>
-
                     </form>
-                    
                     </div>
                 </div>
                 </div>
@@ -112,124 +98,100 @@ def form():
     """
 
     
-def add_to_sets(items):
-    add_to_set = set()
-    for item in items:
-        add_to_set.add(item)
-    return add_to_set
+def find_frequency(*args):
+    l = 0
+    new = []
+    temp = [ sum( set(x).issubset(y) for y in transactions_subset  ) for x in args[0] ]
+    return temp
 
+def check_in_support(*args):
+    # compare candidate support count with min support
+    ret = []
+    val = []
+    to_continue = False
+    for i,v in enumerate(args[1]):
+        if v >= MIN_SUPOORT:
+            t = args[0][i][:]
+            t.sort()
+            if t not in ret:
+                ret.append(t)
+                val.append( args[1][i] )
+    if len(ret) == 0:
+        return {"itemset": ret, "to_continue": False}
+    if max(val) >= MIN_SUPOORT:
+        to_continue = True
+    total_sets.extend(ret)
+    return {"itemset": ret, "to_continue": to_continue}
 
-def convert_to_array_int(items):
-    arr = []
-    for item in items:
-        arr.append(int((item)))
-    return arr
+def apiori_gen(*args):
+    s = set()
+    l = []
+    min_support_list = args[0]
+    for x in range(0, len(min_support_list)-1 ):
+        for y in range(x+1, len(min_support_list) ):
+            temp = min_support_list[x][:]
+            temp.extend( min_support_list[y] )
+            l.insert( len(l) ,list(set(temp)) )
+    l.sort()
+    return list(l for l,_ in itertools.groupby(l))
 
-
-def candidate_item(frequent_item, iterator):
-    data = []
-    for i in frequent_item:
-        for j in frequent_item:
-            if len(i.union(j)) == iterator:
-                data.append(i.union(j))
-    return set(data)
-
-
-def subset(candidate, iterator):
-    return set([frozenset(list(z)) for z in
-                list(chain.from_iterable(combinations(candidate, j) for j in range(iterator - 1, iterator)))])
-
-
-def has_infrequent_subset(candidate, data_set, minimum_support):
-    re_formatted_candidate = set()
-    list_of_items = list(candidate)
-    for item in range(len(list_of_items)):
-        i = 0
-        for data in data_set:
-            if list_of_items[item].issubset(data):
-                i += 1
-        if i >= minimum_support:
-            re_formatted_candidate.add(list_of_items[item])
-    return re_formatted_candidate
-
-
-def apriori_gen(read_lines, minimum_support):
-    re_formatted_data = []
-    item_sets = set()
-    iterator = 2
-    for row in read_lines:
-        split_by_comma = str(row.strip()).split(", ")
-        line_number = split_by_comma.pop(0)
-        item_sets = item_sets.union(split_by_comma)
-        data = set(convert_to_array_int(split_by_comma))
-        data.add(line_number + 'key')
-        # converting tuple to frozenset
-        re_formatted_data.append(frozenset(data))
-
-    re_formatted_item_set = set(frozenset([int(single_set)]) for single_set in item_sets)
-    frequent_item = has_infrequent_subset(re_formatted_item_set, re_formatted_data, minimum_support)
-    frequent_item_sets = add_to_sets(frequent_item)
-
-    while True:
-        candidate_items = candidate_item(frequent_item, iterator)
-        temp_candidate_items = set()
-        for candidate in candidate_items:
-            subsets = subset(candidate, iterator)
-            count = 0
-            for item in subsets:
-                if item in frequent_item:
-                    count += 1
-            if count == len(subsets):
-                temp_candidate_items.add(candidate)
-
-        candidate_items = temp_candidate_items
-        frequent_item = has_infrequent_subset(candidate_items, re_formatted_data, minimum_support)
-
-        if len(frequent_item) != 0:
-            for candidate in frequent_item:
-                subsets = subset(candidate, iterator)
-                frequent_item_sets.add(candidate)
-                frequent_item_sets = frequent_item_sets - subsets
-
-            iterator += 1
-        else:
-            break
-    output_result["total"] = len(frequent_item_sets)
-    return [set(z) for z in frequent_item_sets]
-
-
-def main(select_file_list, minimum_support):
-    try:
-        filename = str(select_file_list)
-        file_read = open(filename, "r")
-        read_lines = file_read.readlines()
-        file_read.close()
-        output_result["result"] = apriori_gen(read_lines, int(minimum_support))
-    except:
-        output_result["error"] = "Invalid File: Some thing is wrong with file upload "
-
-    return output_result
-
-
-
-@app.route('/apriori', methods=["POST"])
+@app.route('/apriori_algo', methods=["POST"])
 def transform_view():
     try:
         f = request.files['data_file']
-        minimum_support = request.form.get('mim_sup')
         if not f:
-            return "No file"
+            return "Provide Data file"
+
+        global MIN_SUPOORT
+        global transactions
+        global apriori_flag
+        global total_sets
+        global transactions_subset
+
+        # MIN_SUPOORT = 20
+        transactions = {}
+        apriori_flag = True
+        total_sets = []
+        transactions_subset=[]
+
+        MIN_SUPOORT = int(request.form.get('mim_sup'))
+        print('MIN_SUPOORT', MIN_SUPOORT)
+        if not MIN_SUPOORT:
+            return "Provide Minimun Support Value"
+
         stream = io.StringIO(f.stream.read().decode("UTF8"), newline=None)
         csv_input = csv.reader(stream)
-        l = []
         for i,v in enumerate(csv_input):
-            t = ""
-            for x in v:
-                t = t+x+","
-            l.append(t[:-1])
-        output_result["result"] = apriori_gen(l, int(minimum_support))
-        print(output_result['result'])
-        print("End - total items:", output_result['total'])
-        return str( "Total sets: "+str(len(output_result['result'])) +" \n"+str(output_result['result']) )
+            transactions[i] = list(map(int, v[1:] ))
+            transactions_subset.append( set( list(map(int, v[1:] ))) ) 
+        print('********* APRIORI *********', MIN_SUPOORT, 'Total Transactions:',len(transactions_subset) )
+        s = set()
+        for x in transactions.values():
+            s.update(x)
+        itemset = [[x] for x in s]
+        sup_count = [0 for x in itemset]
+        itemset.sort()
+        while(apriori_flag):
+            sup_count = find_frequency(itemset)
+            obj = check_in_support(itemset, sup_count)
+            if obj['to_continue'] == False:
+                break
+            itemset = apiori_gen(obj['itemset'])
+        temp = []
+        for i,v in enumerate(total_sets):
+            f = True
+            for j,b in enumerate(total_sets):
+                if set(v) != set(b) and (set(v) & set(b) == set(v)):
+                    f = False
+            if f == True:
+                temp.append(v)
+        final_set = [list(y) for y in set([tuple(x) for x in temp])]
+        ret = {
+            "len": len(final_set),
+            "Minimum": MIN_SUPOORT,
+            "total_sets": final_set }
+        print(ret)
+        return str("Mimimum Support: {}\n\nTotal Sets: {}\n\n{}".format(MIN_SUPOORT, len(final_set), final_set))
     except Exception as e:
-        return " *Must provide Minimum support value,  "+ str(e)
+        print(e)
+        return "*Must provide CSV file and Minimum support value, "+ str(e) 
