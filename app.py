@@ -1,13 +1,13 @@
 from flask import Flask, make_response, request
 import io
-import sys
 import csv
 import itertools
+import time
 
 app = Flask(__name__)
 debug = True
 
-MIN_SUPOORT = 20
+MIN_SUPOORT = 0
 transactions = {}
 apriori_flag = True
 total_sets = []
@@ -155,12 +155,15 @@ def transform_view():
         transactions_subset=[]
 
         MIN_SUPOORT = int(request.form.get('mim_sup'))
-        print('MIN_SUPOORT', MIN_SUPOORT)
+        print( 'File Name: ',f.filename, 'minimum support', MIN_SUPOORT)
         if not MIN_SUPOORT:
             return "Provide Minimun Support Value"
 
+        filename = f.filename
         stream = io.StringIO(f.stream.read().decode("UTF8"), newline=None)
         csv_input = csv.reader(stream)
+
+        start_time = time.time()
         for i,v in enumerate(csv_input):
             transactions[i] = list(map(int, v[1:] ))
             transactions_subset.append( set( list(map(int, v[1:] ))) ) 
@@ -191,7 +194,23 @@ def transform_view():
             "Minimum": MIN_SUPOORT,
             "total_sets": final_set }
         print(ret)
-        return str("Mimimum Support: {}\n\nTotal Sets: {}\n\n{}".format(MIN_SUPOORT, len(final_set), final_set))
+        # return str("Mimimum Support: {}\n\nTotal Sets: {}\n\n{}".format(MIN_SUPOORT, len(final_set), final_set))
+        return '''
+                <html>
+                    <head> <title>Apriori Result</title> </head>
+                    <body>
+                    <br>
+                    <br>
+                        <h2>File Name: {filename}</h2>
+                        <h3>Minimum Support: {mim_s}</h3>
+                        <h3>Total number of sets: {length}</h3>
+                        <h4>
+                            {sets}
+                        </h4>
+                        <h4>Time taken: {time} Seconds </h4>
+                    </body>
+                </html>
+        '''.format(filename = filename, mim_s=MIN_SUPOORT, length= len(final_set), sets = final_set, time = round( (time.time() - start_time), 4 ) )
     except Exception as e:
         print(e)
         return "*Must provide CSV file and Minimum support value, "+ str(e) 
