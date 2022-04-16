@@ -148,7 +148,6 @@ def transform_view():
         global total_sets
         global transactions_subset
 
-        # MIN_SUPOORT = 20
         transactions = {}
         apriori_flag = True
         total_sets = []
@@ -194,19 +193,17 @@ def transform_view():
             "Minimum": MIN_SUPOORT,
             "total_sets": final_set }
         print(ret)
-        # return str("Mimimum Support: {}\n\nTotal Sets: {}\n\n{}".format(MIN_SUPOORT, len(final_set), final_set))
         return '''
                 <html>
                     <head> <title>Apriori Result</title> </head>
                     <body>
                     <br>
                     <br>
+                    <h2>Data Mining Apriori Algorithm at Heroku Server</h2>
                         <h2>File Name: {filename}</h2>
                         <h3>Minimum Support: {mim_s}</h3>
-                        <h3>Total number of sets: {length}</h3>
-                        <h4>
-                            {sets}
-                        </h4>
+                        <h4> {sets} </h4>
+                        <h3>Total number of items: {length}</h3>
                         <h4>Time taken: {time} Seconds </h4>
                     </body>
                 </html>
