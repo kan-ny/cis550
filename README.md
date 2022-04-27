@@ -5,3 +5,5 @@ Algorithm used for mining frequent itemsets and relevant association rules to ga
 Course Project for CIS 550
 
 https://cp2836854.herokuapp.com/
+
+Pramod Kumar Bathulla | 2836854
